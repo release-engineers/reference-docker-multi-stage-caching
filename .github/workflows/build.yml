@@ -1,0 +1,34 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          path: repo
+      - id: cache-docker
+        uses: actions/cache@v3
+        with:
+          path: docker-cache
+          key: ${{ runner.os }}-docker-${{ hashFiles('repo/Dockerfile') }}-${{ github.ref_name }}
+          restore-keys: |
+            ${{ runner.os }}-docker-${{ hashFiles('repo/Dockerfile') }}-${{ github.ref_name }}
+            ${{ runner.os }}-docker-${{ hashFiles('repo/Dockerfile') }}-
+            ${{ runner.os }}-docker-
+      - shell: bash
+        run: |
+          DOCKER_CACHE_DIR="${PWD}/docker-cache"
+          DOCKER_CACHE_OPTS="--cache-from=type=local,src=${DOCKER_CACHE_DIR} --cache-to=type=local,dest=${DOCKER_CACHE_DIR}"
+          cd repo
+          docker buildx create --use --driver=docker-container
+          docker buildx build ${DOCKER_CACHE_OPTS} .
